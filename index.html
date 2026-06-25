@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🌀 Infinite Galaxy Generator</title>
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <!-- UI Overlay -->
+    <div class="overlay">
+        <h1>🌀 Infinite Galaxy</h1>
+        <p>Move your mouse to explore • Click to generate a new galaxy</p>
+        <span class="instruction">✨ Each one is unique</span>
+    </div>
+
+    <!-- Three.js renders to this container -->
+    <div id="canvas-container"></div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
