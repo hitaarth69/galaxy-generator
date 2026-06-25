@@ -1,0 +1,79 @@
+/* --- Reset & Base --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: #0b0e14;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+#canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+}
+
+/* --- UI Overlay --- */
+.overlay {
+    position: fixed;
+    bottom: 3rem;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    z-index: 10;
+    pointer-events: none; /* Allow clicks to pass to the canvas */
+    color: rgba(255, 255, 255, 0.7);
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+}
+
+.overlay h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    background: linear-gradient(135deg, #f472b6, #818cf8, #2dd4bf);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.3rem;
+}
+
+.overlay p {
+    font-size: 0.95rem;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.2rem;
+}
+
+.overlay .instruction {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.3rem 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 40px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.1em;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+}
+
+/* --- Responsive --- */
+@media (max-width: 600px) {
+    .overlay h1 {
+        font-size: 1.8rem;
+    }
+    .overlay p {
+        font-size: 0.8rem;
+    }
+    .overlay .instruction {
+        font-size: 0.65rem;
+        padding: 0.2rem 1rem;
+    }
+}
