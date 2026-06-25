@@ -3,27 +3,46 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🌀 Infinite Galaxy Generator</title>
-    <!-- Import Map for Three.js -->
+    <title>🌀 Galactic Forge - 3D Galaxy Sim</title>
+    <!-- Import Map for Three.js + Addons (Bloom) -->
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
             }
         }
     </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <!-- UI Overlay -->
-    <div class="overlay">
-        <h1>🌀 Infinite Galaxy</h1>
-        <p>Move your mouse to explore • Click to generate a new galaxy</p>
-        <span class="instruction">✨ Each one is unique</span>
+    <div id="canvas-container"></div>
+
+    <!-- Top HUD: Galaxy Stats -->
+    <div id="hud">
+        <div class="hud-left">
+            <h1>🌀 Galactic Forge</h1>
+            <p class="subtitle">Procedural Universe • Click to create</p>
+        </div>
+        <div class="hud-right" id="stats-panel">
+            <div class="stat-item"><span class="stat-label">Stars</span> <span id="stat-stars">0</span></div>
+            <div class="stat-item"><span class="stat-label">Arms</span> <span id="stat-arms">0</span></div>
+            <div class="stat-item"><span class="stat-label">Spin</span> <span id="stat-spin">0.0</span></div>
+            <div class="stat-item"><span class="stat-label">Type</span> <span id="stat-type">—</span></div>
+            <div class="stat-item"><span class="stat-label">FPS</span> <span id="stat-fps">60</span></div>
+        </div>
     </div>
 
-    <!-- Three.js renders to this container -->
-    <div id="canvas-container"></div>
+    <!-- Bottom Color Legend -->
+    <div id="legend">
+        <span class="legend-label">🔥 Core (Hot)</span>
+        <div class="legend-bar" id="legend-bar"></div>
+        <span class="legend-label">❄️ Edge (Cool)</span>
+    </div>
+
+    <!-- Center Instruction (fades out) -->
+    <div id="instruction">🌠 Click anywhere to forge a new galaxy</div>
 
     <script type="module" src="script.js"></script>
 </body>
