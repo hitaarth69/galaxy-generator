@@ -1,52 +1,153 @@
 // ----- Imports -----
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-// ----- DOM Reference -----
+// ----- DOM Refs -----
 const container = document.getElementById('canvas-container');
+const statStars = document.getElementById('stat-stars');
+const statArms = document.getElementById('stat-arms');
+const statSpin = document.getElementById('stat-spin');
+const statType = document.getElementById('stat-type');
+const statFps = document.getElementById('stat-fps');
 
 // ----- Scene Setup -----
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0e14);
+scene.background = new THREE.Color(0x05070a);
 
 // ----- Camera -----
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(8, 4, 12);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(10, 5, 15);
 camera.lookAt(0, 0, 0);
 
 // ----- Renderer -----
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 container.appendChild(renderer.domElement);
 
-// ----- Galaxy Group (will hold all particles) -----
+// ----- Post Processing (Bloom) -----
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.6,   // Strength
+    0.4,   // Radius
+    0.85   // Threshold
+);
+composer.addPass(bloomPass);
+
+// ----- Galaxy Group -----
 let galaxyGroup = new THREE.Group();
 scene.add(galaxyGroup);
 
-// ----- Mouse Tracking (for rotation) -----
+// ----- Background: Distant Starfield (Static) -----
+function createStarfield() {
+    const geo = new THREE.BufferGeometry();
+    const count = 8000;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count * 3; i++) {
+        // Spread in a large sphere radius 60-80
+        const r = 50 + Math.random() * 40;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i] = Math.sin(phi) * Math.cos(theta) * r;
+        positions[++i] = Math.sin(phi) * Math.sin(theta) * r;
+        positions[++i] = Math.cos(phi) * r;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.15,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+    });
+    const stars = new THREE.Points(geo, mat);
+    scene.add(stars);
+    return stars;
+}
+const starfield = createStarfield();
+
+// ----- Background: Nebula Clouds (Big sprites) -----
+function createNebula() {
+    const group = new THREE.Group();
+    // Create canvas texture for a soft cloud
+    function createNebulaTexture(color1, color2) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        gradient.addColorStop(0, color1);
+        gradient.addColorStop(0.4, color2);
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 256, 256);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    const colors = [
+        { c1: 'rgba(100, 50, 200, 0.8)', c2: 'rgba(200, 50, 150, 0.3)' },
+        { c1: 'rgba(20, 100, 200, 0.7)', c2: 'rgba(50, 200, 200, 0.2)' },
+        { c1: 'rgba(200, 100, 50, 0.6)', c2: 'rgba(200, 50, 50, 0.2)' },
+    ];
+
+    colors.forEach((c, i) => {
+        const tex = createNebulaTexture(c.c1, c.c2);
+        const mat = new THREE.SpriteMaterial({
+            map: tex,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            transparent: true,
+            opacity: 0.4,
+            rotation: Math.random() * Math.PI,
+        });
+        const sprite = new THREE.Sprite(mat);
+        const r = 20 + Math.random() * 25;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        sprite.position.set(
+            Math.sin(phi) * Math.cos(theta) * r,
+            Math.sin(phi) * Math.sin(theta) * r * 0.4,
+            Math.cos(phi) * r
+        );
+        sprite.scale.set(30 + Math.random() * 40, 30 + Math.random() * 40, 1);
+        group.add(sprite);
+    });
+    scene.add(group);
+    return group;
+}
+const nebula = createNebula();
+
+// ----- Mouse Tracking -----
 const mouse = { x: 0, y: 0 };
-let targetRotationX = 0;
-let targetRotationY = 0;
-let currentRotationX = 0;
-let currentRotationY = 0;
+let targetRotX = 0, targetRotY = 0;
+let currentRotX = 0, currentRotY = 0;
 
-document.addEventListener('mousemove', (event) => {
-    // Normalize mouse coordinates to -1 .. 1
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    targetRotationX = mouse.y * 0.5;
-    targetRotationY = mouse.x * 0.8;
+document.addEventListener('mousemove', (e) => {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    targetRotX = mouse.y * 0.4;
+    targetRotY = mouse.x * 0.6;
 });
 
-// ----- Click to Regenerate -----
+// ----- Click to Generate -----
 document.addEventListener('click', generateGalaxy);
 
-// ----- Generate Galaxy Function -----
+// ----- FPS Counter -----
+let frameCount = 0;
+let lastFpsUpdate = performance.now();
+
+// ----- Galaxy Generation Logic -----
 function generateGalaxy() {
-    // Remove old galaxy
+    // Clear old
     while (galaxyGroup.children.length > 0) {
         const child = galaxyGroup.children[0];
         if (child.geometry) child.geometry.dispose();
@@ -54,90 +155,91 @@ function generateGalaxy() {
         galaxyGroup.remove(child);
     }
 
-    // ----- Random Parameters -----
-    const parameters = {
-        count: 15000 + Math.floor(Math.random() * 15000),
-        arms: 2 + Math.floor(Math.random() * 4),        // 2 to 5 arms
-        radius: 4 + Math.random() * 4,                  // 4 to 8
-        spin: 1 + Math.random() * 3,                    // 1 to 4
-        randomness: 0.2 + Math.random() * 0.5,          // 0.2 to 0.7
+    // ----- PARAMETERS (Random) -----
+    const params = {
+        count: Math.floor(15000 + Math.random() * 25000),
+        arms: 2 + Math.floor(Math.random() * 4),
+        radius: 3 + Math.random() * 5,
+        spin: 1 + Math.random() * 3.5,
+        randomness: 0.2 + Math.random() * 0.6,
         coreSize: 0.5 + Math.random() * 0.8,
-        colorCenter: new THREE.Color().setHSL(0.1 + Math.random() * 0.1, 0.8, 0.6), // warm
-        colorEdge: new THREE.Color().setHSL(0.6 + Math.random() * 0.3, 0.9, 0.5),   // cool
+        colorCenter: new THREE.Color().setHSL(0.08 + Math.random() * 0.08, 0.9, 0.6),
+        colorEdge: new THREE.Color().setHSL(0.55 + Math.random() * 0.35, 0.9, 0.5),
     };
 
-    // ----- Geometry -----
-    const positions = new Float32Array(parameters.count * 3);
-    const colors = new Float32Array(parameters.count * 3);
+    // Determine Galaxy Type based on arms and spin
+    let type = 'Spiral (Sa)';
+    if (params.arms >= 4) type = 'Grand Design (Sc)';
+    else if (params.arms === 3) type = 'Three-Armed (Sb)';
+    else if (params.spin > 3) type = 'Tight Spiral (Sa)';
+    else type = 'Loose Spiral (Sc)';
+    if (params.count < 12000) type = 'Dwarf Spiral';
 
-    const colorCenter = parameters.colorCenter;
-    const colorEdge = parameters.colorEdge;
+    // Update Stats HUD
+    statStars.textContent = params.count.toLocaleString();
+    statArms.textContent = params.arms;
+    statSpin.textContent = params.spin.toFixed(2);
+    statType.textContent = type;
 
-    for (let i = 0; i < parameters.count; i++) {
-        // Spiral math
-        const armIndex = i % parameters.arms;
-        const armAngleOffset = (armIndex / parameters.arms) * Math.PI * 2;
+    // Update Legend gradient dynamically
+    const c1 = params.colorCenter.clone().multiplyScalar(1.5).getStyle();
+    const c2 = params.colorEdge.clone().multiplyScalar(1.5).getStyle();
+    document.getElementById('legend-bar').style.background =
+        `linear-gradient(90deg, ${c1}, ${c2})`;
 
-        // Radius distribution (more particles near center)
-        const r = Math.pow(Math.random(), 1.5) * parameters.radius;
-        const spinAngle = r * 0.5 * parameters.spin;
+    // ----- Build Geometry -----
+    const positions = new Float32Array(params.count * 3);
+    const colors = new Float32Array(params.count * 3);
 
-        // Randomness (scatter)
-        const randomX = (Math.random() - 0.5) * parameters.randomness * (r * 0.8 + 0.5);
-        const randomY = (Math.random() - 0.5) * parameters.randomness * (r * 0.4 + 0.3);
-        const randomZ = (Math.random() - 0.5) * parameters.randomness * (r * 0.8 + 0.5);
+    for (let i = 0; i < params.count; i++) {
+        const armIdx = i % params.arms;
+        const armAngle = (armIdx / params.arms) * Math.PI * 2;
+        const r = Math.pow(Math.random(), 1.5) * params.radius;
+        const spinAngle = r * 0.5 * params.spin;
 
-        // Position
-        const angle = spinAngle + armAngleOffset;
-        const x = Math.cos(angle) * r + randomX;
-        const y = randomY * 0.6;
-        const z = Math.sin(angle) * r + randomZ;
+        const randX = (Math.random() - 0.5) * params.randomness * (r * 0.8 + 0.5);
+        const randY = (Math.random() - 0.5) * params.randomness * (r * 0.4 + 0.3);
+        const randZ = (Math.random() - 0.5) * params.randomness * (r * 0.8 + 0.5);
+
+        const angle = spinAngle + armAngle;
+        const x = Math.cos(angle) * r + randX;
+        const y = randY * 0.6;
+        const z = Math.sin(angle) * r + randZ;
 
         positions[i * 3] = x;
         positions[i * 3 + 1] = y;
         positions[i * 3 + 2] = z;
 
-        // Color (interpolate between center and edge based on distance)
-        const mixFactor = Math.min(r / parameters.radius, 1);
-        const color = colorCenter.clone().lerp(colorEdge, mixFactor);
-
-        // Add some random brightness variation
-        const brightness = 0.7 + Math.random() * 0.5;
-        colors[i * 3] = color.r * brightness;
-        colors[i * 3 + 1] = color.g * brightness;
-        colors[i * 3 + 2] = color.b * brightness;
+        const mix = Math.min(r / params.radius, 1);
+        const color = params.colorCenter.clone().lerp(params.colorEdge, mix);
+        const bright = 0.7 + Math.random() * 0.5;
+        colors[i * 3] = color.r * bright;
+        colors[i * 3 + 1] = color.g * bright;
+        colors[i * 3 + 2] = color.b * bright;
     }
 
-    // ----- Build Geometry -----
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    // ----- Generate a soft circular particle texture -----
+    // Particle Texture
     function createParticleTexture() {
         const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
+        canvas.width = 64; canvas.height = 64;
         const ctx = canvas.getContext('2d');
-
-        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(0.3, 'rgba(255,255,255,0.9)');
-        gradient.addColorStop(0.7, 'rgba(200,200,255,0.5)');
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-
-        ctx.fillStyle = gradient;
+        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.3, 'rgba(255,255,255,0.9)');
+        grad.addColorStop(0.7, 'rgba(200,200,255,0.4)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 64, 64);
-
         return new THREE.CanvasTexture(canvas);
     }
 
-    const particleTexture = createParticleTexture();
-
-    // ----- Material -----
     const material = new THREE.PointsMaterial({
-        size: 0.08,
-        map: particleTexture,
+        size: 0.09,
+        map: createParticleTexture(),
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         transparent: true,
@@ -146,75 +248,88 @@ function generateGalaxy() {
         sizeAttenuation: true,
     });
 
-    // ----- Create Points -----
     const points = new THREE.Points(geometry, material);
     galaxyGroup.add(points);
 
-    // Add a subtle central glow (smaller, brighter core)
-    const coreGeometry = new THREE.BufferGeometry();
-    const corePositions = new Float32Array(1000 * 3);
-    for (let i = 0; i < 1000; i++) {
-        const r = Math.pow(Math.random(), 2) * parameters.coreSize;
+    // Core Glow (extra bright center)
+    const coreGeo = new THREE.BufferGeometry();
+    const corePos = new Float32Array(1500 * 3);
+    for (let i = 0; i < 1500; i++) {
+        const r = Math.pow(Math.random(), 2) * params.coreSize;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.random() * Math.PI * 2;
-        corePositions[i * 3] = Math.sin(theta) * Math.cos(phi) * r;
-        corePositions[i * 3 + 1] = Math.sin(theta) * Math.sin(phi) * r * 0.3;
-        corePositions[i * 3 + 2] = Math.cos(theta) * r;
+        corePos[i * 3] = Math.sin(theta) * Math.cos(phi) * r;
+        corePos[i * 3 + 1] = Math.sin(theta) * Math.sin(phi) * r * 0.3;
+        corePos[i * 3 + 2] = Math.cos(theta) * r;
     }
-    coreGeometry.setAttribute('position', new THREE.BufferAttribute(corePositions, 3));
-
-    const coreMaterial = new THREE.PointsMaterial({
-        size: 0.05,
+    coreGeo.setAttribute('position', new THREE.BufferAttribute(corePos, 3));
+    const coreMat = new THREE.PointsMaterial({
+        size: 0.06,
         color: 0xffeedd,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.9,
         sizeAttenuation: true,
     });
-    const corePoints = new THREE.Points(coreGeometry, coreMaterial);
+    const corePoints = new THREE.Points(coreGeo, coreMat);
     galaxyGroup.add(corePoints);
 
-    // Reset rotation for the new galaxy
+    // Reset rotation
     galaxyGroup.rotation.x = 0;
     galaxyGroup.rotation.y = 0;
-    currentRotationX = 0;
-    currentRotationY = 0;
-    targetRotationX = 0;
-    targetRotationY = 0;
+    currentRotX = 0; currentRotY = 0;
+    targetRotX = 0; targetRotY = 0;
 }
 
-// ----- Window Resize Handling -----
-function onResize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    camera.aspect = width / height;
+// ----- Resize -----
+window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
-}
-window.addEventListener('resize', onResize);
+    renderer.setSize(w, h);
+    composer.setSize(w, h);
+});
 
 // ----- Animation Loop -----
 function animate() {
     requestAnimationFrame(animate);
 
-    // Smooth rotation following mouse
-    currentRotationX += (targetRotationX - currentRotationX) * 0.05;
-    currentRotationY += (targetRotationY - currentRotationY) * 0.05;
+    // Smooth mouse rotation
+    currentRotX += (targetRotX - currentRotX) * 0.05;
+    currentRotY += (targetRotY - currentRotY) * 0.05;
+    galaxyGroup.rotation.x = currentRotX * 0.5;
+    galaxyGroup.rotation.y = currentRotY * 0.8;
 
-    galaxyGroup.rotation.x = currentRotationX * 0.5;
-    galaxyGroup.rotation.y = currentRotationY * 0.8;
+    // Auto spin
+    galaxyGroup.rotation.y += 0.0006;
 
-    // Slow auto-rotation (makes it feel alive)
-    galaxyGroup.rotation.y += 0.0008;
+    // Rotate background starfield slowly (parallax)
+    starfield.rotation.y += 0.0001;
+    nebula.rotation.y += 0.00005;
 
-    renderer.render(scene, camera);
+    // Render via composer (Bloom)
+    composer.render();
+
+    // FPS Counter
+    frameCount++;
+    const now = performance.now();
+    if (now - lastFpsUpdate > 1000) {
+        statFps.textContent = frameCount;
+        frameCount = 0;
+        lastFpsUpdate = now;
+    }
 }
 
-// ----- Generate First Galaxy & Start -----
+// ----- Generate First & Start -----
 generateGalaxy();
 animate();
 
-// ----- Small console greeting -----
-console.log('🌀 Infinite Galaxy Generator');
-console.log('Move your mouse to explore • Click to generate a new galaxy!');
+// ----- Fade out instruction after 5 seconds -----
+setTimeout(() => {
+    const inst = document.getElementById('instruction');
+    if (inst) inst.style.opacity = '0';
+}, 5000);
+
+console.log('🌀 Galactic Forge loaded! Click anywhere to create a new universe.');
